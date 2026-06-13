@@ -1,0 +1,6 @@
+{
+  "name": "Quima",
+  "description": "An interactive, beautiful 3D digital universe visualizing fundamental quantum mechanics concepts, with a game layer and interactive simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
