@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, Dispatch, SetStateAction } from 'react';
 import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+
 import { QuantumSystemConfig, QuantumSystemType } from '../types';
 import { createGlowTexture } from '../utils/canvasTextures';
 import { Play, Pause, RefreshCw, Layers } from 'lucide-react';
@@ -48,6 +52,11 @@ export default function QuantumSimulator({
     prevTunnelingProb: 0,
     spinAlignTime: 0,
   });
+
+  const onChallengeProgressRef = useRef(onChallengeProgress);
+  useEffect(() => {
+    onChallengeProgressRef.current = onChallengeProgress;
+  }, [onChallengeProgress]);
 
   // Keep configs in ref so the animation loop always gets the freshest values
   const configRef = useRef(config);
@@ -119,6 +128,14 @@ export default function QuantumSimulator({
   // Let's implement the complete Three.js engine hook
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
+    
+    // Reset internal challenge states when switching modes or challenges
+    challengeStateRef.current = {
+      predictClicks: 0,
+      predictHits: 0,
+      prevTunnelingProb: 0,
+      spinAlignTime: 0,
+    };
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight || 550;
@@ -130,13 +147,26 @@ export default function QuantumSimulator({
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     camera.position.set(0, 5, 12);
 
+    
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
       antialias: true,
       alpha: true,
+      powerPreference: "high-performance"
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const renderScene = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 1.5, 0.4, 0.85);
+    bloomPass.threshold = 0.3;
+    bloomPass.strength = 0.5;
+    bloomPass.radius = 0.2;
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(renderScene);
+    composer.addPass(bloomPass);
+
 
     // 2. Camera Group for Custom Smooth Orbit controls
     const cameraGroup = new THREE.Group();
@@ -256,6 +286,27 @@ export default function QuantumSimulator({
     // 6. OBJECT GROUPS FOR DIFFERENT SYSTEMS
     const wavefunctionGroup = new THREE.Group();
     const superpositionGroup = new THREE.Group();
+    
+    // 🐈 3D Tiny Cat Sprite at the edge of the box space
+    const catCanvas = document.createElement('canvas');
+    catCanvas.width = 128;
+    catCanvas.height = 128;
+    const catCtx = catCanvas.getContext('2d');
+    if (catCtx) {
+      catCtx.font = "80px sans-serif";
+      catCtx.textAlign = "center";
+      catCtx.textBaseline = "middle";
+      catCtx.fillText("🐈‍⬛", 64, 64);
+    }
+    const catTex = new THREE.CanvasTexture(catCanvas);
+    const catMat = new THREE.SpriteMaterial({ map: catTex, transparent: true });
+    const catSprite = new THREE.Sprite(catMat);
+    catSprite.scale.set(1.5, 1.5, 1);
+    catSprite.position.set(-6, -3.5, 3);
+    scene.add(catSprite);
+    
+    // Slight bobbing animation for the cat
+
     const entanglementGroup = new THREE.Group();
     const tunnelingGroup = new THREE.Group();
     const spinGroup = new THREE.Group();
@@ -605,7 +656,7 @@ export default function QuantumSimulator({
     // Rotating arrow (pointer)
     const arrowDir = new THREE.Vector3(0, 1, 0);
     const arrowOrigin = new THREE.Vector3(0, 0, 0);
-    const arrowLength = 1.9;
+    const arrowLength = 2.4;
     const arrowColor = 0x00f0ff;
     const spinArrow = new THREE.ArrowHelper(arrowDir, arrowOrigin, arrowLength, arrowColor, 0.4, 0.2);
     spinGroup.add(spinArrow);
@@ -886,7 +937,7 @@ export default function QuantumSimulator({
           // Ideal state is when the particles align (offset is tiny, or sync constant matches config speed target)
           const alignmentAcc = Math.max(0, 100 - Math.abs(offsetDist) * 80);
           if (alignmentAcc >= 90) {
-            onChallengeProgress(alignmentAcc, `Quantum State resonance detected at ${alignmentAcc.toFixed(1)}% overlap!`);
+            onChallengeProgressRef.current(alignmentAcc, `Quantum State resonance detected at ${alignmentAcc.toFixed(1)}% overlap!`);
           }
         }
       }
@@ -957,9 +1008,9 @@ export default function QuantumSimulator({
         if (activeChallengeId === 'tunneling-barrier') {
           const scorePercent = transValue * 100;
           if (scorePercent >= 40) {
-            onChallengeProgress(scorePercent, `Succeeded! Transmission rate through the Potential Wall matches ${scorePercent.toFixed(1)}%`);
+            onChallengeProgressRef.current(scorePercent, `Succeeded! Transmission rate through the Potential Wall matches ${scorePercent.toFixed(1)}%`);
           } else {
-            onChallengeProgress(0, `Transmission currently blocked: ${scorePercent.toFixed(1)}%. Increase momentum, decrease barrier energy.`);
+            onChallengeProgressRef.current(0, `Transmission currently blocked: ${scorePercent.toFixed(1)}%. Increase momentum, decrease barrier energy.`);
           }
         }
 
@@ -1050,14 +1101,7 @@ export default function QuantumSimulator({
         spinFieldRing1.rotation.y = time * 0.6;
         spinFieldRing2.rotation.y = -time * 0.6;
 
-        // Challenge check: Spin synchronization puzzle
-        if (activeChallengeId === 'entanglement-sync') {
-          // Wait for precession phases to align
-          const alignedVal = Math.abs(Math.sin(time * precessionFrequency));
-          if (alignedVal < 0.15) {
-            onChallengeProgress(95, 'EPR Spin state synchronizing inside transverse magnetic window!');
-          }
-        }
+        // Spin sync challenge requires manual button trigger now
       }
 
       // 13. PROJECT 3D PLACES TO HTML COORDINATES FOR GLOWING LABELS
@@ -1110,7 +1154,13 @@ export default function QuantumSimulator({
       }
 
       // Render updated frame
-      renderer.render(scene, camera);
+      
+        // Animate the cat sprite
+        if (catSprite) {
+          catSprite.position.y = -3.5 + Math.sin(time * 2) * 0.1;
+        }
+
+      composer.render();
     };
 
     animationId = requestAnimationFrame(animate);
@@ -1150,9 +1200,9 @@ export default function QuantumSimulator({
           
           if (hitScore >= 85) {
             challengeStateRef.current.predictHits += 1;
-            onChallengeProgress(hitScore, `Target alignment accurate! Localized candidate inside wave packet with accuracy of ${hitScore}%`);
+            onChallengeProgressRef.current(hitScore, `Target alignment accurate! Localized candidate inside wave packet with accuracy of ${hitScore}%`);
           } else {
-            onChallengeProgress(0, `Missed peak probability zone (Current overlap: ${hitScore}%). Wait/watch wavefunction to swell!`);
+            onChallengeProgressRef.current(0, `Missed peak probability zone (Current overlap: ${hitScore}%). Wait/watch wavefunction to swell!`);
           }
         }
       }
@@ -1319,10 +1369,19 @@ export default function QuantumSimulator({
         )}
 
         {/* Instruction badge in-canvas */}
-        <div id="instruction-badge" className="absolute top-4 left-4 font-mono text-[10px] text-slate-400 bg-slate-900/80 border border-slate-800/80 px-3 py-1.5 rounded-lg flex items-center gap-1.5 backdrop-blur-md">
-          <Layers className="w-3.5 h-3.5 text-indigo-400" />
-          <span>DRAG TO ROTATE • WHEEL TO ZOOM • CLICK WAVE TO MEASURE</span>
+        
+        {/* Instruction badge in-canvas */}
+        <div id="instruction-badge" className="absolute top-4 left-4 font-mono text-[10px] text-slate-400 bg-slate-900/80 border border-slate-800/80 px-3 py-1.5 rounded-lg flex items-center gap-1.5 backdrop-blur-md max-w-sm">
+          <Layers className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          <span className="leading-tight">
+            {activeChallengeId === 'predict-collapse' && "QUEST: Predict highest probability zone and click canvas to measure!"}
+            {activeChallengeId === 'stabilize-wave' && "QUEST: Adjust Uncertainty slider until waves perfectly overlap (resonate)."}
+            {activeChallengeId === 'tunneling-barrier' && "QUEST: Adjust Momentum and Barrier Energy to maximize wave transmission!"}
+            {activeChallengeId === 'entanglement-sync' && "QUEST: Wait for precession vectors to align, then click TRIGGER SPIN PULSE!"}
+            {!activeChallengeId && "DRAG TO ROTATE • WHEEL TO ZOOM • CLICK WAVE TO MEASURE"}
+          </span>
         </div>
+
       </div>
 
       {/* Embedded Simulation Controls bar */}
@@ -1362,6 +1421,8 @@ export default function QuantumSimulator({
         </div>
 
         {/* Waveform Measurement button is sticky inside central space */}
+        
+        {/* Contextual Action Button */}
         {systemType === 'wavefunction' && (
           <button
             id="wave-measure-btn"
@@ -1377,6 +1438,23 @@ export default function QuantumSimulator({
             {config.isCollapsed ? '✦ EXCITE STATE (RESET)' : config.isCollapsing ? '⚡ COLLAPSING ψ...' : '⚡ MEASURE SYSTEM'}
           </button>
         )}
+        {systemType === 'spin' && activeChallengeId === 'entanglement-sync' && (
+          <button
+            id="spin-pulse-btn"
+            onClick={() => {
+              const alignedVal = Math.abs(Math.sin(accumTimeRef.current * 3.0));
+              if (alignedVal < 0.15) {
+                onChallengeProgressRef.current(95, 'EPR Spin state synchronizing inside transverse magnetic window!');
+              } else {
+                onChallengeProgressRef.current(0, 'Missed alignment window! Wait for the vectors to match exactly.');
+              }
+            }}
+            className="px-4 py-1 rounded-lg text-xs font-mono tracking-tight font-medium cursor-pointer transition-all bg-pink-950/80 text-pink-300 border border-pink-500/40 hover:bg-pink-900"
+          >
+            🌀 TRIGGER SPIN PULSE
+          </button>
+        )}
+
 
         {/* Speed Factor slider */}
         <div className="flex items-center gap-3">

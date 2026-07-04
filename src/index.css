@@ -5,3 +5,47 @@
   --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
+
+body.light-theme {
+  /* Warm terracotta / sand background colors, replacing slate */
+  --color-slate-950: #faebe1; /* Very light warm sand */
+  --color-slate-900: #f0dac9;
+  --color-slate-800: #e0c2ab;
+  --color-slate-700: #c29c80;
+  --color-slate-600: #a37859;
+  --color-slate-500: #875c3d;
+  --color-slate-400: #6b4528;
+  --color-slate-300: #523118;
+  --color-slate-200: #381e0a;
+  --color-slate-100: #211003;
+  --color-slate-50: #120800;
+
+  /* Accents mapped to warm terracotta, rust, and clay */
+  --color-cyan-300: #eb7c59;
+  --color-cyan-400: #d65f3a;
+  --color-cyan-500: #bd4824;
+  --color-cyan-600: #9e3616;
+  
+  --color-indigo-300: #d68787;
+  --color-indigo-400: #bd6262;
+  --color-indigo-500: #a34646;
+  --color-indigo-950: #faebe1; /* For scrollbars and deep backgrounds */
+  
+  --color-pink-300: #e695a3;
+  --color-pink-400: #cc7282;
+  --color-pink-500: #b35263;
+  --color-pink-900: #e0c2ab;
+  --color-pink-950: #f0dac9;
+  
+  --color-purple-300: #ba8392;
+  --color-purple-400: #9e6071;
+  --color-purple-500: #824353;
+  
+  --color-emerald-400: #74a382;
+  --color-emerald-500: #578564;
+}
+
+body {
+  transition: background-color 0.5s ease, color 0.5s ease;
+}
+

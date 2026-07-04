@@ -17,7 +17,7 @@ import {
   ArrowRightLeft,
   Settings2,
   Trophy,
-  Sparkles,
+  Sparkles, Sun, Moon,
   HelpCircle,
   Activity,
   Award,
@@ -31,6 +31,11 @@ import {
 
 export default function App() {
   // 1. Core State
+  const [isLightMode, setIsLightMode] = useState(false);
+  useEffect(() => {
+    if (isLightMode) document.body.classList.add('light-theme');
+    else document.body.classList.remove('light-theme');
+  }, [isLightMode]);
   const [systemType, setSystemType] = useState<QuantumSystemType>('wavefunction');
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
 
@@ -78,7 +83,7 @@ export default function App() {
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
 
   // New Interactive explanatory system states
-  const [showExplanatoryGuide, setShowExplanatoryGuide] = useState<boolean>(true); // start open for highly interactive and explanatory focus!
+  const [showExplanatoryGuide, setShowExplanatoryGuide] = useState<boolean>(false); // start closed to not block view
   const [activeGuideTab, setActiveGuideTab] = useState<'born' | 'heisenberg' | 'entangle' | 'tunnel' | 'spin'>('born');
 
   // Brief educational descriptions for each concept
@@ -150,15 +155,20 @@ export default function App() {
     setCurrentScore(0);
     setCurrentFeedback('');
     setIsSolved(false);
+    setShowCelebration(false);
   };
 
   const handleTabChange = (type: QuantumSystemType) => {
     setSystemType(type);
-    // If we transition tabs, clear previous challenge unless it corresponds
-    const currentChallenge = CHALLENGES.find((c) => c.id === activeChallengeId);
-    if (currentChallenge && currentChallenge.systemType !== type) {
+    
+    // Auto-select correct challenge matching mode
+    const matchingChallenge = CHALLENGES.find((c) => c.systemType === type);
+    if (matchingChallenge) {
+      setActiveChallengeId(matchingChallenge.id);
+    } else {
       setActiveChallengeId(null);
     }
+    
     resetChallengeStates();
 
     const modeLabels: Record<QuantumSystemType, string> = {
@@ -187,6 +197,12 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent font-sans">
                 Quima Quantum 3D Playground
               </h1>
+              <button 
+                onClick={() => setIsLightMode(!isLightMode)} 
+                className="absolute right-4 top-4 p-2 rounded-full bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700/50 text-slate-300 transition-colors z-50"
+              >
+                {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4 text-orange-300" />}
+              </button>
               <p className="text-[10px] uppercase tracking-widest font-mono text-slate-400">
                 Quantum Simulation Lab
               </p>
@@ -205,7 +221,7 @@ export default function App() {
               <div className="w-px h-4 bg-slate-800" />
               <div className="flex items-center gap-2">
                 <Activity className="w-3.5 h-3.5 text-purple-400" />
-                <span>Planck $\hbar$: <strong className="text-purple-300 font-bold font-mono">1.054e-34 J·s</strong></span>
+                <span>Planck ℏ: <strong className="text-purple-300 font-bold font-mono">1.054e-34 J·s</strong></span>
               </div>
             </div>
 
