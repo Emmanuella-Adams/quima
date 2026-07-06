@@ -73,7 +73,13 @@ export default function ChallengeCenter({
           {/* Current Challenge Progress */}
           <div className="p-3.5 rounded-xl border bg-slate-950/40 border-slate-800">
             <div className="flex justify-between items-center mb-1.5">
-              <span className="text-[10px] font-mono text-slate-400 uppercase">Resonance Match</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase">
+                {activeChallenge.id === 'predict-collapse' && 'Capture Overlap'}
+                {activeChallenge.id === 'stabilize-wave' && 'Harmonic Resonance'}
+                {activeChallenge.id === 'tunneling-barrier' && 'Barrier Transmission'}
+                {activeChallenge.id === 'entanglement-sync' && 'Vector Alignment'}
+                {activeChallenge.id === 'doubleslit-diffraction' && 'Diffraction Fringe Match'}
+              </span>
               <span className={`text-xs font-mono font-semibold ${isSolved ? 'text-emerald-400' : 'text-cyan-400'}`}>
                 {currentScore > 0 ? `${currentScore.toFixed(0)}%` : '0%'}
               </span>

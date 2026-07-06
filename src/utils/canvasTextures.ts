@@ -12,12 +12,10 @@ export function createGlowTexture(colorStr: string = '#ffffff'): THREE.Texture {
 
   if (ctx) {
     const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    // Outer edge is fully transparent, core is bright, transition is smooth
+    // Tighten the glow gradient for a cleaner, higher contrast, less fuzzy appearance
     gradient.addColorStop(0, colorStr);
-    gradient.addColorStop(0.2, colorStr);
-    // Fade out
-    gradient.addColorStop(0.5, 'rgba(128, 0, 255, 0.4)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    gradient.addColorStop(0.25, colorStr);
+    gradient.addColorStop(0.6, 'rgba(0, 0, 0, 0)');
 
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 64, 64);

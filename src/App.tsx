@@ -26,7 +26,9 @@ import {
   TrendingUp,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Split,
+  Sliders
 } from 'lucide-react';
 
 export default function App() {
@@ -38,6 +40,7 @@ export default function App() {
   }, [isLightMode]);
   const [systemType, setSystemType] = useState<QuantumSystemType>('wavefunction');
   const [activeChallengeId, setActiveChallengeId] = useState<string | null>(null);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   // Quantum interaction log histories
   const [events, setEvents] = useState<QuantumEvent[]>([
@@ -72,8 +75,14 @@ export default function App() {
     isCollapsed: false,
     collapsedPosition: null,
     spinActive: true,
-    tunnelingBarrierEnergy: 5.5,
-    tunnelingWavePacketWidth: 6.5,
+    tunnelingBarrierEnergy: 9.5,
+    tunnelingWavePacketWidth: 5.5,
+    superpositionAmplitude: 0.4,
+    superpositionFrequency: 1.0,
+    superpositionPhase: 45,
+    doubleSlitSlitWidth: 0.6,
+    doubleSlitSlitDistance: 3.5,
+    doubleSlitWaveWavelength: 0.6,
   });
 
   // Gamification tracking states
@@ -84,7 +93,7 @@ export default function App() {
 
   // New Interactive explanatory system states
   const [showExplanatoryGuide, setShowExplanatoryGuide] = useState<boolean>(false); // start closed to not block view
-  const [activeGuideTab, setActiveGuideTab] = useState<'born' | 'heisenberg' | 'entangle' | 'tunnel' | 'spin'>('born');
+  const [activeGuideTab, setActiveGuideTab] = useState<'born' | 'heisenberg' | 'entangle' | 'tunnel' | 'spin' | 'doubleslit'>('born');
 
   // Brief educational descriptions for each concept
   const conceptDetails: Record<QuantumSystemType, {
@@ -123,6 +132,12 @@ export default function App() {
       formula: 'Ω = -γ B₀',
       text: 'Every quantum particle possesses an intrinsic magnetic spin orientation vector. When placed under an external magnetic field force, the spin axes do not stand rigid; instead, they precess gracefully, drawing symmetrical cones in space accompanied by transverse field rings.',
     },
+    doubleslit: {
+      title: 'Classic Double-Slit Diffraction & Wave Duality',
+      subtitle: 'The ultimate demonstration of wave-particle duality in quantum physics.',
+      formula: 'I(θ) ∝ cos²(π d sinθ / λ) · sinc²(π w sinθ / λ)',
+      text: 'When a coherent wave packet passes through two parallel slits separated by distance d, the wavefronts interfere with each other constructively and destructively. Over time, individual particle impacts build up on a screen to form an elegant striped pattern, illustrating that physical matter propagates as a continuous probability wave.',
+    },
   };
 
   const handleChallengeProgress = (score: number, feedback: string) => {
@@ -141,6 +156,8 @@ export default function App() {
         isCompletedNow = true;
       } else if (active.id === 'entanglement-sync' && score >= 95) {
         isCompletedNow = true;
+      } else if (active.id === 'doubleslit-diffraction' && score >= 90) {
+        isCompletedNow = true;
       }
 
       if (isCompletedNow && !isSolved) {
@@ -156,6 +173,22 @@ export default function App() {
     setCurrentFeedback('');
     setIsSolved(false);
     setShowCelebration(false);
+
+    // Scramble / offset initial parameters so challenges don't start in a pre-solved state!
+    setConfig((prev) => ({
+      ...prev,
+      isCollapsed: false,
+      isCollapsing: false,
+      collapsedPosition: null,
+      tunnelingBarrierEnergy: 9.5,
+      tunnelingWavePacketWidth: 5.5,
+      superpositionAmplitude: 0.4,
+      superpositionFrequency: 1.0,
+      superpositionPhase: 45,
+      doubleSlitSlitWidth: 0.6,
+      doubleSlitSlitDistance: 3.5,
+      doubleSlitWaveWavelength: 0.6,
+    }));
   };
 
   const handleTabChange = (type: QuantumSystemType) => {
@@ -177,6 +210,7 @@ export default function App() {
       entanglement: 'EPR Space-time Non-locality Link',
       tunneling: 'Potential Barrier Tunneling Effect',
       spin: 'Larmor Precession and Spin Orbitals',
+      doubleslit: 'Classic Double-Slit Experiment',
     };
     addEvent('quantum', `Vacuum-cooler chamber recalibrated. Active mode: ${modeLabels[type]}`, type);
   };
@@ -212,19 +246,6 @@ export default function App() {
           {/* Quick System Status Monitor & Informational Toggle */}
           <div className="flex flex-wrap items-center gap-3 self-end md:self-auto">
             
-            {/* Quick telemetry indicators */}
-            <div id="status-monitor" className="flex items-center gap-4 bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-xl font-mono text-xs text-slate-300">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
-                <span>State: <strong className="text-cyan-300 font-bold font-mono">Coherent Superposition</strong></span>
-              </div>
-              <div className="w-px h-4 bg-slate-800" />
-              <div className="flex items-center gap-2">
-                <Activity className="w-3.5 h-3.5 text-purple-400" />
-                <span>Planck ℏ: <strong className="text-purple-300 font-bold font-mono">1.054e-34 J·s</strong></span>
-              </div>
-            </div>
-
             {/* Toggle primary guidebook */}
             <button
               id="guidebook-toggle-btn"
@@ -319,6 +340,17 @@ export default function App() {
                     >
                       <span>5. Spin Precession</span>
                       <span className="text-[9px] opacity-70">Ω = -γB₀</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveGuideTab('doubleslit')}
+                      className={`text-left px-3.5 py-2.5 rounded-lg text-xs font-mono transition-all flex items-center justify-between cursor-pointer ${
+                        activeGuideTab === 'doubleslit' 
+                          ? 'bg-pink-500/10 text-pink-300 border border-pink-500/30 font-bold' 
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+                      }`}
+                    >
+                      <span>6. Double-Slit Duality</span>
+                      <span className="text-[9px] opacity-70">d·sinθ = mλ</span>
                     </button>
                   </div>
 
@@ -533,13 +565,59 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* tab 6: Double-Slit Duality */}
+                    {activeGuideTab === 'doubleslit' && (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-900 pb-2">
+                          <h4 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-pink-400 animate-pulse" />
+                            <span>Double-Slit Interference & Wave Duality</span>
+                          </h4>
+                          <code className="text-[11px] font-mono text-pink-300 bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-800">
+                            d · sin(θ) = m · λ
+                          </code>
+                        </div>
+                        <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                          When physical matter (like electrons) is fired at a barrier with two slits, the probability wave function goes through both simultaneously. The resulting wave fronts merge and form a beautiful 3D interference matrix. The fringe frequency is proportional to the slit distance divided by the De Broglie wavelength!
+                        </p>
+                        
+                        {/* LIVE DYNAMICS INDICATORS */}
+                        <div className="mt-2 bg-slate-900/40 border border-slate-800/60 p-3 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase">Slit separation (d)</span>
+                            <span className="text-amber-400 font-bold font-mono">
+                              {config.doubleSlitSlitDistance.toFixed(2)} nm
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase">Wavelength (λ)</span>
+                            <span className="text-cyan-400 font-bold font-mono">
+                              {config.doubleSlitWaveWavelength.toFixed(2)} Å
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase">Fringe Separation (S)</span>
+                            <span className="text-pink-400 font-bold font-mono">
+                              {(config.doubleSlitWaveWavelength / config.doubleSlitSlitDistance * 5).toFixed(3)} mm
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 text-[10px] block uppercase">Fringe Density</span>
+                            <span className="text-indigo-300 font-bold font-mono">
+                              {(config.doubleSlitSlitDistance / config.doubleSlitWaveWavelength).toFixed(1)} lines/cm
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Explanatory helper status footer */}
                     <div className="mt-4 pt-3 border-t border-slate-900 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-slate-400">
                       <span className="flex items-center gap-1.5">
                         <Info className="w-3.5 h-3.5 text-cyan-400" />
                         <span>Interactive guide parameters synchronize instantly with the slider controls below.</span>
                       </span>
-                      <span className="text-purple-400 font-bold uppercase hover:underline cursor-pointer" onClick={() => setActiveGuideTab((prev) => prev === 'born' ? 'heisenberg' : prev === 'heisenberg' ? 'entangle' : prev === 'entangle' ? 'tunnel' : prev === 'tunnel' ? 'spin' : 'born')}>
+                      <span className="text-purple-400 font-bold uppercase hover:underline cursor-pointer" onClick={() => setActiveGuideTab((prev) => prev === 'born' ? 'heisenberg' : prev === 'heisenberg' ? 'entangle' : prev === 'entangle' ? 'tunnel' : prev === 'tunnel' ? 'spin' : prev === 'spin' ? 'doubleslit' : 'born')}>
                         Next Core Concept →
                       </span>
                     </div>
@@ -622,6 +700,19 @@ export default function App() {
             <span>SPIN PRECESSION</span>
           </button>
 
+          <button
+            id="tab-doubleslit"
+            onClick={() => handleTabChange('doubleslit')}
+            className={`flex-1 min-w-[140px] flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-xs font-mono font-bold tracking-wide transition-all cursor-pointer ${
+              systemType === 'doubleslit'
+                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 border border-transparent'
+            }`}
+          >
+            <Split className="w-4 h-4 text-amber-400" />
+            <span>DOUBLE-SLIT</span>
+          </button>
+
         </div>
       </section>
 
@@ -678,8 +769,8 @@ export default function App() {
 
         </div>
 
-        {/* Right Column (Parameters & active Challenge controller) */}
-        <div className="flex flex-col gap-6">
+        {/* Right Column (Parameters & active Challenge controller) - hidden on mobile, shown on lg */}
+        <div className="hidden lg:flex lg:flex-col lg:gap-6">
           
           {/* Parameter Tuning module */}
           <div className="flex-1">
@@ -707,6 +798,82 @@ export default function App() {
         </div>
 
       </main>
+
+      {/* Floating action button for mobile settings - only visible on <lg */}
+      <div className="fixed bottom-6 right-6 z-50 lg:hidden">
+        <button
+          id="mobile-settings-toggle"
+          onClick={() => setIsMobileDrawerOpen(true)}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-3 rounded-full shadow-lg shadow-indigo-950/50 border border-indigo-400/30 transition-all font-mono text-xs font-bold uppercase tracking-wider cursor-pointer"
+        >
+          <Sliders className="w-4 h-4" />
+          <span>Configure Settings</span>
+        </button>
+      </div>
+
+      {/* Expandable Settings Drawer / Bottom Sheet for Mobile */}
+      <AnimatePresence>
+        {isMobileDrawerOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              id="mobile-drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileDrawerOpen(false)}
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 lg:hidden"
+            />
+            
+            {/* Slide-up bottom sheet */}
+            <motion.div
+              id="mobile-drawer-sheet"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto bg-slate-950 border-t border-slate-900 rounded-t-3xl z-50 p-6 flex flex-col gap-6 lg:hidden shadow-2xl"
+            >
+              {/* Drag handle line */}
+              <div className="w-12 h-1.5 bg-slate-800 rounded-full mx-auto shrink-0 cursor-pointer" onClick={() => setIsMobileDrawerOpen(false)} />
+              
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-900 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-indigo-400" />
+                  <h3 className="text-sm font-bold tracking-wider font-mono uppercase text-slate-200">Quantum Tuning & Challenges</h3>
+                </div>
+                <button
+                  id="close-mobile-drawer"
+                  onClick={() => setIsMobileDrawerOpen(false)}
+                  className="text-xs font-mono px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                >
+                  CLOSE
+                </button>
+              </div>
+              
+              {/* Inner Content */}
+              <div className="flex flex-col gap-6 overflow-y-auto pb-8">
+                <ParameterPanel
+                  systemType={systemType}
+                  config={config}
+                  setConfig={setConfig}
+                />
+                <ChallengeCenter
+                  activeChallengeId={activeChallengeId}
+                  setActiveChallengeId={setActiveChallengeId}
+                  systemType={systemType}
+                  setSystemType={setSystemType}
+                  currentScore={currentScore}
+                  currentFeedback={currentFeedback}
+                  isSolved={isSolved}
+                  onResetChallenge={resetChallengeStates}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* 3. VISUAL FOOTER WITH AUTHORSHIP */}
       <footer id="app-footer" className="border-t border-slate-900 bg-slate-950/40 py-5 mt-auto text-xs font-mono text-slate-500">

@@ -180,8 +180,10 @@ export default function QuantumSimulator({
     let targetPhi = phi;
     let targetRadius = radius;
 
-    // Mouse drag handling for orbital viewing
+    // Mouse drag & touch handling for orbital viewing
     let isDragging = false;
+    let isPinching = false;
+    let touchStartDist = 0;
     let previousMousePosition = { x: 0, y: 0 };
 
     const handleMouseDown = (e: MouseEvent) => {
@@ -209,11 +211,63 @@ export default function QuantumSimulator({
       targetRadius = THREE.MathUtils.clamp(targetRadius + e.deltaY * 0.01, 5, 25);
     };
 
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        isPinching = false;
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        isPinching = true;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDist = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDragging && e.touches.length === 1) {
+        const deltaX = e.touches[0].clientX - previousMousePosition.x;
+        const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+        targetTheta -= deltaX * 0.007;
+        targetPhi = THREE.MathUtils.clamp(targetPhi - deltaY * 0.007, -1.2, 1.2);
+
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      } else if (isPinching && e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (touchStartDist > 0) {
+          const factor = touchStartDist / dist;
+          const delta = (factor - 1) * 3.5;
+          targetRadius = THREE.MathUtils.clamp(targetRadius + delta, 5, 25);
+        }
+        touchStartDist = dist;
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      isDragging = false;
+      isPinching = false;
+      touchStartDist = 0;
+    };
+
     const canvas = canvasRef.current;
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
 
     // 3. Lighting Setup
     const ambientLight = new THREE.AmbientLight(0x1a0f30, 1.5);
@@ -310,12 +364,14 @@ export default function QuantumSimulator({
     const entanglementGroup = new THREE.Group();
     const tunnelingGroup = new THREE.Group();
     const spinGroup = new THREE.Group();
+    const doubleSlitGroup = new THREE.Group();
 
     scene.add(wavefunctionGroup);
     scene.add(superpositionGroup);
     scene.add(entanglementGroup);
     scene.add(tunnelingGroup);
     scene.add(spinGroup);
+    scene.add(doubleSlitGroup);
 
     // 7. SYSTEM 1: Wavefunction ψ (Volumetric probability cloud & Particle core)
     // Procedural glowing particle texture
@@ -458,13 +514,12 @@ export default function QuantumSimulator({
       const pos = new Float32Array(count * 3);
       const cls = new Float32Array(count * 3);
       for (let i = 0; i < count; i++) {
-        const thetaVal = Math.random() * Math.PI * 2;
-        const phiVal = Math.acos(Math.random() * 2 - 1);
-        const r = 2.0 * (Math.pow(Math.random(), 1.2) + 0.15);
-
-        pos[i * 3] = r * Math.sin(phiVal) * Math.cos(thetaVal);
-        pos[i * 3 + 1] = r * Math.sin(phiVal) * Math.sin(thetaVal);
-        pos[i * 3 + 2] = r * Math.cos(phiVal);
+        // Distribute along X axis from -4.0 to 4.0
+        const x = -4.0 + (i / count) * 8.0;
+        pos[i * 3] = x;
+        pos[i * 3 + 1] = 0;
+        // slight random spread in Z
+        pos[i * 3 + 2] = (Math.random() - 0.5) * 0.3;
 
         cls[i * 3] = colorBase.r;
         cls[i * 3 + 1] = colorBase.g;
@@ -712,6 +767,136 @@ export default function QuantumSimulator({
     spinFieldRing2.rotateX(-Math.PI / 4);
     spinGroup.add(spinFieldRing1, spinFieldRing2);
 
+    // SYSTEM 6: Classic Double-Slit Experiment 3D Setup
+    const slabMiddle = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xf43f5e, // Rose barrier
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    }));
+    const slabMiddleWire = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xfda4af,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.65
+    }));
+    slabMiddle.add(slabMiddleWire);
+    doubleSlitGroup.add(slabMiddle);
+
+    const slabLeft = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xf43f5e,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    }));
+    const slabLeftWire = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xfda4af,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.65
+    }));
+    slabLeft.add(slabLeftWire);
+    doubleSlitGroup.add(slabLeft);
+
+    const slabRight = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xf43f5e,
+      transparent: true,
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    }));
+    const slabRightWire = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 1), new THREE.MeshBasicMaterial({
+      color: 0xfda4af,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.65
+    }));
+    slabRight.add(slabRightWire);
+    doubleSlitGroup.add(slabRight);
+
+    // Phosphor Detector Screen
+    const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.8, 7.5), new THREE.MeshBasicMaterial({
+      color: 0x030712, // Deep velvet black background
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide
+    }));
+    const screenWire = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.8, 7.5), new THREE.MeshBasicMaterial({
+      color: 0x334155, // Slate-700 mesh lines
+      wireframe: true,
+      transparent: true,
+      opacity: 0.4
+    }));
+    screenMesh.add(screenWire);
+    screenMesh.position.set(4.4, 0, 0);
+    doubleSlitGroup.add(screenMesh);
+
+    // Interference Fringe Planes (Active feedback)
+    const fringePlanes: THREE.Mesh[] = [];
+    const fringeCount = 21;
+    const fringeGroup = new THREE.Group();
+    for (let i = 0; i < fringeCount; i++) {
+      const fringeP = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 4.6), new THREE.MeshBasicMaterial({
+        color: 0x06b6d4, // Cyan active glow
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide
+      }));
+      fringeP.rotateY(-Math.PI / 2);
+      const z = -3.5 + (i / (fringeCount - 1)) * 7.0;
+      fringeP.position.set(4.31, 0, z);
+      fringeGroup.add(fringeP);
+      fringePlanes.push(fringeP);
+    }
+    doubleSlitGroup.add(fringeGroup);
+
+    // Target Template Fringe Planes (Magenta holograms to match for the challenge)
+    const targetFringePlanes: THREE.Mesh[] = [];
+    const targetFringeGroup = new THREE.Group();
+    for (let i = 0; i < fringeCount; i++) {
+      const fringeT = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 4.6), new THREE.MeshBasicMaterial({
+        color: 0xec4899, // Magenta target holographic guide
+        transparent: true,
+        opacity: 0.05,
+        side: THREE.DoubleSide
+      }));
+      fringeT.rotateY(-Math.PI / 2);
+      const z = -3.5 + (i / (fringeCount - 1)) * 7.0;
+      fringeT.position.set(4.32, 0, z);
+      targetFringeGroup.add(fringeT);
+      targetFringePlanes.push(fringeT);
+    }
+    doubleSlitGroup.add(targetFringeGroup);
+
+    // de Broglie wavefront wave-particles
+    const doubleSlitParticlesCount = 350;
+    const doubleSlitGeo = new THREE.BufferGeometry();
+    const doubleSlitPositions = new Float32Array(doubleSlitParticlesCount * 3);
+    const doubleSlitColors = new Float32Array(doubleSlitParticlesCount * 3);
+
+    for (let i = 0; i < doubleSlitParticlesCount; i++) {
+      doubleSlitPositions[i * 3] = -4.5 - Math.random() * 2.5;
+      doubleSlitPositions[i * 3 + 1] = (Math.random() - 0.5) * 1.5;
+      doubleSlitPositions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+
+      doubleSlitColors[i * 3] = 0.0;
+      doubleSlitColors[i * 3 + 1] = 0.85;
+      doubleSlitColors[i * 3 + 2] = 1.0;
+    }
+    doubleSlitGeo.setAttribute('position', new THREE.BufferAttribute(doubleSlitPositions, 3));
+    doubleSlitGeo.setAttribute('color', new THREE.BufferAttribute(doubleSlitColors, 3));
+
+    const doubleSlitMat = new THREE.PointsMaterial({
+      size: 0.12,
+      map: cyanGlowTex,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      depthWrite: false
+    });
+    const doubleSlitPoints = new THREE.Points(doubleSlitGeo, doubleSlitMat);
+    doubleSlitGroup.add(doubleSlitPoints);
+
     // 12. RUNNING ANIMATION LOOP WITH TIME-EVOLUTION
     let animationId: number;
     let shockwaveProg = 0;
@@ -753,6 +938,7 @@ export default function QuantumSimulator({
       entanglementGroup.visible = currentType === 'entanglement';
       tunnelingGroup.visible = currentType === 'tunneling';
       spinGroup.visible = currentType === 'spin';
+      doubleSlitGroup.visible = currentType === 'doubleslit';
 
       // ----------------- SYSTEM 1: Wavefunction Updates -----------------
       if (currentType === 'wavefunction') {
@@ -907,38 +1093,56 @@ export default function QuantumSimulator({
         const posA = psiAGeo.attributes.position.array as Float32Array;
         const posB = psiBGeo.attributes.position.array as Float32Array;
 
-        // Orbiting state envelopes
-        const offsetDist = 1.2 * Math.sin(time * 1.5);
+        const ampA = currConfig.superpositionAmplitude ?? 0.8;
+        const freqA = currConfig.superpositionFrequency ?? 1.5;
+        const phaseA = ((currConfig.superpositionPhase ?? 120) * Math.PI) / 180;
 
+        // Target constants
+        const ampB = 1.6;
+        const freqB = 3.0;
+        const phaseB = (270 * Math.PI) / 180;
+
+        // Animate both waves. They oscillate in time but their shape is governed by the parameters.
         for (let i = 0; i < waveA_Count; i++) {
           const ix = i * 3;
-          // State A moves in harmonic ellipse
-          posA[ix] += Math.sin(time * 0.8 + i) * 0.003;
-          posA[ix + 1] += Math.cos(time * 0.9 + i) * 0.003;
-          posA[ix + 2] += Math.sin(time * 1.1 + i) * 0.003;
+          const x = posA[ix];
+          // Gaussian envelope to decay beautifully at edges
+          const envelope = Math.exp(-(x * x) / 5.5);
+          
+          // Main wave profile
+          posA[ix + 1] = ampA * Math.sin(x * freqA - time * 3.5 + phaseA) * envelope;
+          // Spiraling 3D transverse depth
+          posA[ix + 2] = ampA * Math.cos(x * freqA - time * 3.5 + phaseA) * 0.18 * envelope;
         }
+
         for (let i = 0; i < waveB_Count; i++) {
           const ix = i * 3;
-          // State B slides in opposite direction representing interference
-          posB[ix] += Math.cos(time * 0.8 + i) * 0.003;
-          posB[ix + 1] += Math.sin(time * 0.9 + i) * 0.003;
-          posB[ix + 2] += Math.cos(time * 1.1 + i) * 0.003;
+          const x = posB[ix];
+          const envelope = Math.exp(-(x * x) / 5.5);
+
+          posB[ix + 1] = ampB * Math.sin(x * freqB - time * 3.5 + phaseB) * envelope;
+          posB[ix + 2] = ampB * Math.cos(x * freqB - time * 3.5 + phaseB) * 0.18 * envelope;
         }
 
         psiAGeo.attributes.position.needsUpdate = true;
         psiBGeo.attributes.position.needsUpdate = true;
 
-        psiAPoints.position.x = -offsetDist * 0.5;
-        psiBPoints.position.x = offsetDist * 0.5;
+        // Keep both waves centered
+        psiAPoints.position.x = 0;
+        psiBPoints.position.x = 0;
 
         // Challenge check: Stabilize resonance wave
         if (activeChallengeId === 'stabilize-wave') {
-          // Evaluate if amplitude / speed parameters align
-          // Ideal state is when the particles align (offset is tiny, or sync constant matches config speed target)
-          const alignmentAcc = Math.max(0, 100 - Math.abs(offsetDist) * 80);
-          if (alignmentAcc >= 90) {
-            onChallengeProgressRef.current(alignmentAcc, `Quantum State resonance detected at ${alignmentAcc.toFixed(1)}% overlap!`);
-          }
+          const phaseDiff = Math.abs((( (currConfig.superpositionPhase ?? 120) - 270 + 180) % 360) - 180) / 180;
+          const ampDiff = Math.abs(ampA - 1.6) / 1.8;
+          const freqDiff = Math.abs(freqA - 3.0) / 3.5;
+          const resonanceScore = Math.max(0, 100 * (1 - (ampDiff * 0.3 + freqDiff * 0.4 + phaseDiff * 0.3)));
+
+          // Pass real-time score to the progress bar for immediate completion when aligned >= 90%!
+          onChallengeProgressRef.current(
+            resonanceScore,
+            `Adjust Phase to 270°, Freq to 3.0 GHz, Amp to 1.6 arb. Current Match: ${resonanceScore.toFixed(1)}%`
+          );
         }
       }
 
@@ -1007,11 +1211,12 @@ export default function QuantumSimulator({
         // Let's pass tunneling progress to gamification
         if (activeChallengeId === 'tunneling-barrier') {
           const scorePercent = transValue * 100;
-          if (scorePercent >= 40) {
-            onChallengeProgressRef.current(scorePercent, `Succeeded! Transmission rate through the Potential Wall matches ${scorePercent.toFixed(1)}%`);
-          } else {
-            onChallengeProgressRef.current(0, `Transmission currently blocked: ${scorePercent.toFixed(1)}%. Increase momentum, decrease barrier energy.`);
-          }
+          // Report passive progress up to 39% so progress bar updates dynamically.
+          // User must click manual "EMIT WAVE PACKET" button to verify and trigger full completion score.
+          onChallengeProgressRef.current(
+            Math.min(39, scorePercent),
+            `Tune Momentum & Barrier sliders. Current transmission rate: ${scorePercent.toFixed(1)}% (Need >= 40%)`
+          );
         }
 
         // Move wave packet particles from left to right (-6 to 6)
@@ -1104,6 +1309,130 @@ export default function QuantumSimulator({
         // Spin sync challenge requires manual button trigger now
       }
 
+      // ----------------- SYSTEM 6: Double-Slit Diffraction Updates -----------------
+      if (currentType === 'doubleslit') {
+        const d = currConfig.doubleSlitSlitDistance ?? 2.2;
+        const w = currConfig.doubleSlitSlitWidth ?? 0.6;
+        const lambda = currConfig.doubleSlitWaveWavelength ?? 1.2;
+
+        // 1. Position/scale the wall slabs dynamically based on Slit Distance and Slit Width!
+        const midZ = Math.max(0.01, d - w);
+        slabMiddle.scale.set(1, 1, midZ);
+        slabMiddle.position.set(-1.5, 0, 0);
+
+        const outerZLength = 5.0;
+        slabLeft.scale.set(1, 1, outerZLength);
+        slabLeft.position.set(-1.5, 0, -(d/2 + w/2 + outerZLength/2));
+
+        slabRight.scale.set(1, 1, outerZLength);
+        slabRight.position.set(-1.5, 0, d/2 + w/2 + outerZLength/2);
+
+        // 2. Animate fringe pattern intensity on the phosphor screen (active & target)
+        fringePlanes.forEach((plane, i) => {
+          const z = -3.5 + (i / (fringePlanes.length - 1)) * 7.0;
+          const thetaAngle = Math.atan2(z, 6.0);
+
+          const valCos = Math.cos(Math.PI * d * Math.sin(thetaAngle) / (lambda * 0.4));
+          const interference = valCos * valCos;
+
+          const argSinc = Math.PI * w * Math.sin(thetaAngle) / (lambda * 0.4);
+          const diffraction = argSinc === 0 ? 1.0 : Math.sin(argSinc) / argSinc;
+          const sincSq = diffraction * diffraction;
+
+          const activeInt = interference * sincSq;
+
+          // @ts-ignore
+          plane.material.opacity = Math.max(0.05, activeInt * 0.95);
+        });
+
+        // Target template fringes: calculated with fixed target parameters (d = 2.2, lambda = 1.2, w = 0.6)
+        targetFringePlanes.forEach((plane, i) => {
+          const z = -3.5 + (i / (targetFringePlanes.length - 1)) * 7.0;
+          const thetaAngle = Math.atan2(z, 6.0);
+
+          const valCos = Math.cos(Math.PI * 2.2 * Math.sin(thetaAngle) / (1.2 * 0.4));
+          const interference = valCos * valCos;
+
+          const argSinc = Math.PI * 0.6 * Math.sin(thetaAngle) / (1.2 * 0.4);
+          const diffraction = argSinc === 0 ? 1.0 : Math.sin(argSinc) / argSinc;
+          const sincSq = diffraction * diffraction;
+
+          const targetInt = interference * sincSq;
+
+          // @ts-ignore
+          plane.material.opacity = Math.max(0.01, targetInt * 0.25);
+        });
+
+        // 3. Animate de Broglie wavefront particles
+        const doubleSlitPositions = doubleSlitGeo.attributes.position.array as Float32Array;
+        const doubleSlitColors = doubleSlitGeo.attributes.color.array as Float32Array;
+
+        for (let i = 0; i < doubleSlitParticlesCount; i++) {
+          const ix = i * 3;
+          const iy = i * 3 + 1;
+          const iz = i * 3 + 2;
+
+          const particleSpeed = 2.4 + (i % 6) * 0.15;
+          doubleSlitPositions[ix] += particleSpeed * realDt;
+
+          if (doubleSlitPositions[ix] > 4.33) {
+            doubleSlitPositions[ix] = -5.0 - Math.random() * 2.0;
+          }
+
+          const curX = doubleSlitPositions[ix];
+
+          if (curX < -1.5) {
+            const envelope = Math.exp(-((curX + 3.25) * (curX + 3.25)) / 1.5);
+            doubleSlitPositions[iy] = Math.sin(curX * (8.0 / lambda) - time * 18.0 + i) * 0.3 * envelope;
+            doubleSlitPositions[iz] = Math.cos(curX * (8.0 / lambda) - time * 18.0 + i) * 0.3 * envelope;
+
+            doubleSlitColors[ix] = 0.1;
+            doubleSlitColors[iy] = 0.85;
+            doubleSlitColors[iz] = 1.0;
+          } else {
+            const goesSlitA = (i % 2 === 0);
+            const slitZ = goesSlitA ? d/2 : -d/2;
+
+            const thetaRange = 0.85;
+            const angleFraction = ((i * 23) % 100) / 100;
+            const thetaVal = -thetaRange/2 + angleFraction * thetaRange;
+
+            const distFromSlit = curX - (-1.5);
+            doubleSlitPositions[iy] = Math.sin(distFromSlit * (8.0 / lambda) - time * 18.0 + i) * 0.08;
+            doubleSlitPositions[iz] = slitZ + distFromSlit * Math.sin(thetaVal);
+
+            const thetaAngle = Math.atan2(doubleSlitPositions[iz], 6.0);
+            const valCos = Math.cos(Math.PI * d * Math.sin(thetaAngle) / (lambda * 0.4));
+            const interference = valCos * valCos;
+
+            const argSinc = Math.PI * w * Math.sin(thetaAngle) / (lambda * 0.4);
+            const diffraction = argSinc === 0 ? 1.0 : Math.sin(argSinc) / argSinc;
+            const sincSq = diffraction * diffraction;
+
+            const activeInt = interference * sincSq;
+
+            const glowIntensity = Math.max(0.12, activeInt);
+            doubleSlitColors[ix] = 0.0;
+            doubleSlitColors[iy] = 0.4 + glowIntensity * 0.6;
+            doubleSlitColors[iz] = 0.7 + glowIntensity * 0.3;
+          }
+        }
+
+        doubleSlitGeo.attributes.position.needsUpdate = true;
+        doubleSlitGeo.attributes.color.needsUpdate = true;
+
+        if (activeChallengeId === 'doubleslit-diffraction') {
+          const distDiff = Math.abs(d - 2.2) / 2.5;
+          const waveDiff = Math.abs(lambda - 1.2) / 1.7;
+          const diffScore = Math.max(0, 100 * (1 - (distDiff * 0.5 + waveDiff * 0.5)));
+          // Pass real-time score for direct automatic completion when aligned >= 90%!
+          onChallengeProgressRef.current(
+            diffScore,
+            `Adjust Slit Distance to 2.2 nm, Wavelength to 1.2 Å. Current Alignment: ${diffScore.toFixed(1)}%`
+          );
+        }
+      }
+
       // 13. PROJECT 3D PLACES TO HTML COORDINATES FOR GLOWING LABELS
       const projectPoint = (vec: THREE.Vector3) => {
         const tempV = vec.clone();
@@ -1145,6 +1474,13 @@ export default function QuantumSimulator({
           setLabelCoords({
             tunnelIn: { ...tIn, val: 'Incident Wave Packet' },
             tunnelOut: { ...tOut, val: 'Tunneling Transmitted' },
+          });
+        } else if (currentType === 'doubleslit') {
+          const tIn = projectPoint(new THREE.Vector3(-3.5, 1.5, 0));
+          const tOut = projectPoint(new THREE.Vector3(3.5, 1.5, 0));
+          setLabelCoords({
+            tunnelIn: { ...tIn, val: 'de Broglie Wavefront' },
+            tunnelOut: { ...tOut, val: 'Interference Fringes' },
           });
         } else {
           setLabelCoords({});
@@ -1233,6 +1569,12 @@ export default function QuantumSimulator({
       window.removeEventListener('mouseup', handleMouseUp);
       // @ts-ignore
       canvas.removeEventListener('wheel', handleWheel);
+      // @ts-ignore
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      // @ts-ignore
+      window.removeEventListener('touchmove', handleTouchMove);
+      // @ts-ignore
+      window.removeEventListener('touchend', handleTouchEnd);
       renderer.dispose();
       starGeo.dispose();
       starMat.dispose();
@@ -1256,6 +1598,29 @@ export default function QuantumSimulator({
       tunnelMat.dispose();
       spinSphereGeo.dispose();
       spinSphereMat.dispose();
+      doubleSlitGeo.dispose();
+      doubleSlitMat.dispose();
+      screenMesh.geometry.dispose();
+      // @ts-ignore
+      screenMesh.material.dispose();
+      screenWire.geometry.dispose();
+      // @ts-ignore
+      screenWire.material.dispose();
+      slabMiddle.geometry.dispose();
+      // @ts-ignore
+      slabMiddle.material.dispose();
+      slabLeft.geometry.dispose();
+      slabRight.geometry.dispose();
+      fringePlanes.forEach(p => {
+        p.geometry.dispose();
+        // @ts-ignore
+        p.material.dispose();
+      });
+      targetFringePlanes.forEach(p => {
+        p.geometry.dispose();
+        // @ts-ignore
+        p.material.dispose();
+      });
       cyanGlowTex.dispose();
       magentaGlowTex.dispose();
       violetGlowTex.dispose();
@@ -1275,15 +1640,29 @@ export default function QuantumSimulator({
       }));
     } else {
       // Smooth collapse centered
+      const randomX = (Math.random() - 0.5) * config.uncertaintyScale * 0.5;
+      const randomY = (Math.random() - 0.5) * config.uncertaintyScale * 0.5;
+      const randomZ = (Math.random() - 0.5) * config.uncertaintyScale * 0.5;
+
       setConfig((prev) => ({
         ...prev,
         isCollapsing: true,
-        collapsedPosition: [
-          (Math.random() - 0.5) * prev.uncertaintyScale * 0.5,
-          (Math.random() - 0.5) * prev.uncertaintyScale * 0.5,
-          (Math.random() - 0.5) * prev.uncertaintyScale * 0.5,
-        ],
+        collapsedPosition: [randomX, randomY, randomZ],
       }));
+
+      if (activeChallengeId === 'predict-collapse') {
+        const amp = 0.5 * Math.sin(accumTimeRef.current * 3.5);
+        const alignmentValue = Math.abs(amp);
+        challengeStateRef.current.predictClicks += 1;
+        const hitScore = Math.round(70 + alignmentValue * 30);
+
+        if (hitScore >= 85) {
+          challengeStateRef.current.predictHits += 1;
+          onChallengeProgressRef.current(hitScore, `Target alignment accurate! Localized candidate inside wave packet with accuracy of ${hitScore}%`);
+        } else {
+          onChallengeProgressRef.current(0, `Missed peak probability zone (Current overlap: ${hitScore}%). Wait/watch wavefunction to swell!`);
+        }
+      }
     }
   };
 
@@ -1368,14 +1747,144 @@ export default function QuantumSimulator({
           </div>
         )}
 
-        {/* Instruction badge in-canvas */}
-        
+        {/* Dynamic HUD Gauges */}
+        {activeChallengeId && (
+          <div className="absolute top-4 right-4 bg-slate-950/90 border border-slate-800/80 px-4 py-3 rounded-xl backdrop-blur-md flex flex-col gap-2 font-mono text-xs z-10 w-64 pointer-events-none select-none">
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-1 font-bold">
+              Live Quantum Telemetry
+            </div>
+            
+            {activeChallengeId === 'predict-collapse' && (
+              <>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-400 text-[11px]">Swell Amplitude:</span>
+                  <span className="text-cyan-400 font-bold">
+                    {(Math.abs(0.5 * Math.sin(accumTimeRef.current * 3.5)) * 200).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-cyan-400 transition-all duration-75"
+                    style={{ width: `${Math.min(100, Math.abs(0.5 * Math.sin(accumTimeRef.current * 3.5)) * 200).toFixed(0)}%` }}
+                  />
+                </div>
+                <div className="text-[9px] text-slate-500 leading-tight">
+                  Wait for the wave swell to peak above 85% to trigger a measurement capture!
+                </div>
+              </>
+            )}
+
+            {activeChallengeId === 'stabilize-wave' && (
+              <>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-400 text-[11px]">Resonance Match:</span>
+                  {(() => {
+                    const ampA = config.superpositionAmplitude ?? 0.8;
+                    const freqA = config.superpositionFrequency ?? 1.5;
+                    const phaseDiff = Math.abs((((config.superpositionPhase ?? 120) - 270 + 180) % 360) - 180) / 180;
+                    const ampDiff = Math.abs(ampA - 1.6) / 1.8;
+                    const freqDiff = Math.abs(freqA - 3.0) / 3.5;
+                    const score = Math.max(0, 100 * (1 - (ampDiff * 0.3 + freqDiff * 0.4 + phaseDiff * 0.3)));
+                    return (
+                      <span className={`font-bold ${score >= 90 ? 'text-emerald-400 animate-pulse' : 'text-purple-400'}`}>
+                        {score.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500"
+                    style={{ 
+                      width: `${(() => {
+                        const ampA = config.superpositionAmplitude ?? 0.8;
+                        const freqA = config.superpositionFrequency ?? 1.5;
+                        const phaseDiff = Math.abs((((config.superpositionPhase ?? 120) - 270 + 180) % 360) - 180) / 180;
+                        const ampDiff = Math.abs(ampA - 1.6) / 1.8;
+                        const freqDiff = Math.abs(freqA - 3.0) / 3.5;
+                        return Math.max(0, 100 * (1 - (ampDiff * 0.3 + freqDiff * 0.4 + phaseDiff * 0.3)));
+                      })()}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-[9px] text-slate-500 leading-tight">
+                  Match Phase shift to <span className="text-cyan-400">270°</span>, Freq to <span className="text-purple-400">3.0 GHz</span>, and Amp to <span className="text-pink-400">1.6</span>. Lock resonance when match is <span className="font-bold text-slate-400">≥ 90%</span>.
+                </div>
+              </>
+            )}
+
+            {activeChallengeId === 'tunneling-barrier' && (
+              <>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-400 text-[11px]">Tunnel Prob (T):</span>
+                  {(() => {
+                    const dEnergy = config.tunnelingBarrierEnergy - (12 - config.tunnelingWavePacketWidth);
+                    const transValue = dEnergy <= 0 ? 0.95 : Math.max(0.01, Math.exp(-0.35 * dEnergy));
+                    const p = transValue * 100;
+                    return (
+                      <span className={`font-bold ${p >= 40 ? 'text-emerald-400 animate-pulse' : 'text-pink-400'}`}>
+                        {p.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-pink-500"
+                    style={{ 
+                      width: `${(() => {
+                        const dEnergy = config.tunnelingBarrierEnergy - (12 - config.tunnelingWavePacketWidth);
+                        const transValue = dEnergy <= 0 ? 0.95 : Math.max(0.01, Math.exp(-0.35 * dEnergy));
+                        return transValue * 100;
+                      })()}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-[9px] text-slate-500 leading-tight">
+                  Increase momentum or reduce barrier potential energy until T is <span className="font-bold text-slate-400">≥ 40%</span>, then click Emit!
+                </div>
+              </>
+            )}
+
+            {activeChallengeId === 'entanglement-sync' && (
+              <>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-slate-400 text-[11px]">Vector Correlation:</span>
+                  {(() => {
+                    const alignedVal = Math.abs(Math.sin(accumTimeRef.current * 3.0));
+                    const syncPercent = Math.max(0, 100 - alignedVal * 100);
+                    return (
+                      <span className={`font-bold ${syncPercent >= 95 ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`}>
+                        {syncPercent.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-cyan-400"
+                    style={{ 
+                      width: `${(() => {
+                        const alignedVal = Math.abs(Math.sin(accumTimeRef.current * 3.0));
+                        return Math.max(0, 100 - alignedVal * 100);
+                      })()}%` 
+                    }}
+                  />
+                </div>
+                <div className="text-[9px] text-slate-500 leading-tight">
+                  EPR vector shifts as particles precess. Trigger the spin pulse when synchronization reaches <span className="font-bold text-slate-400">≥ 95%</span>!
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Instruction badge in-canvas */}
         <div id="instruction-badge" className="absolute top-4 left-4 font-mono text-[10px] text-slate-400 bg-slate-900/80 border border-slate-800/80 px-3 py-1.5 rounded-lg flex items-center gap-1.5 backdrop-blur-md max-w-sm">
           <Layers className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           <span className="leading-tight">
             {activeChallengeId === 'predict-collapse' && "QUEST: Predict highest probability zone and click canvas to measure!"}
-            {activeChallengeId === 'stabilize-wave' && "QUEST: Adjust Uncertainty slider until waves perfectly overlap (resonate)."}
+            {activeChallengeId === 'stabilize-wave' && "QUEST: Adjust Amplitude, Frequency, & Phase to match target template."}
             {activeChallengeId === 'tunneling-barrier' && "QUEST: Adjust Momentum and Barrier Energy to maximize wave transmission!"}
             {activeChallengeId === 'entanglement-sync' && "QUEST: Wait for precession vectors to align, then click TRIGGER SPIN PULSE!"}
             {!activeChallengeId && "DRAG TO ROTATE • WHEEL TO ZOOM • CLICK WAVE TO MEASURE"}
@@ -1438,15 +1947,77 @@ export default function QuantumSimulator({
             {config.isCollapsed ? '✦ EXCITE STATE (RESET)' : config.isCollapsing ? '⚡ COLLAPSING ψ...' : '⚡ MEASURE SYSTEM'}
           </button>
         )}
+        {systemType === 'superposition' && activeChallengeId === 'stabilize-wave' && (
+          <button
+            id="superposition-lock-btn"
+            onClick={() => {
+              const ampA = config.superpositionAmplitude ?? 0.8;
+              const freqA = config.superpositionFrequency ?? 1.5;
+              const phaseDiff = Math.abs((((config.superpositionPhase ?? 120) - 270 + 180) % 360) - 180) / 180;
+              const ampDiff = Math.abs(ampA - 1.6) / 1.8;
+              const freqDiff = Math.abs(freqA - 3.0) / 3.5;
+              const resonanceScore = Math.max(0, 100 * (1 - (ampDiff * 0.3 + freqDiff * 0.4 + phaseDiff * 0.3)));
+
+              if (resonanceScore >= 90) {
+                onChallengeProgress(resonanceScore, `Resonance match achieved! Harmonic lock established at ${resonanceScore.toFixed(1)}%!`);
+              } else {
+                onChallengeProgress(0, `Phase lock failed! Match is only ${resonanceScore.toFixed(1)}%. Keep tuning sliders closer to the target.`);
+              }
+            }}
+            className="px-4 py-1 rounded-lg text-xs font-mono tracking-tight font-medium cursor-pointer transition-all bg-purple-950/85 text-purple-300 border border-purple-500/40 hover:bg-purple-900"
+          >
+            🔒 LOCK HARMONIC RESONANCE
+          </button>
+        )}
+        {systemType === 'tunneling' && activeChallengeId === 'tunneling-barrier' && (
+          <button
+            id="tunnel-emit-btn"
+            onClick={() => {
+              const dEnergy = config.tunnelingBarrierEnergy - (12 - config.tunnelingWavePacketWidth);
+              const transValue = dEnergy <= 0 ? 0.95 : Math.max(0.01, Math.exp(-0.35 * dEnergy));
+              const scorePercent = transValue * 100;
+
+              if (scorePercent >= 40) {
+                onChallengeProgress(scorePercent, `Succeeded! Transmission rate through the Potential Wall is ${scorePercent.toFixed(1)}%!`);
+              } else {
+                onChallengeProgress(0, `Wave packet reflected! Transmission rate is only ${scorePercent.toFixed(1)}%. Tune sliders to E > V₀.`);
+              }
+            }}
+            className="px-4 py-1 rounded-lg text-xs font-mono tracking-tight font-medium cursor-pointer transition-all bg-emerald-950/85 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-900"
+          >
+            ⚡ EMIT WAVE PACKET
+          </button>
+        )}
+        {systemType === 'doubleslit' && activeChallengeId === 'doubleslit-diffraction' && (
+          <button
+            id="doubleslit-emit-btn"
+            onClick={() => {
+              const d = config.doubleSlitSlitDistance ?? 2.2;
+              const lambda = config.doubleSlitWaveWavelength ?? 1.2;
+              const distDiff = Math.abs(d - 2.2) / 2.5;
+              const waveDiff = Math.abs(lambda - 1.2) / 1.7;
+              const diffScore = Math.max(0, 100 * (1 - (distDiff * 0.5 + waveDiff * 0.5)));
+
+              if (diffScore >= 90) {
+                onChallengeProgress(diffScore, `Diffraction lock confirmed! Wavefront interference aligned at ${diffScore.toFixed(1)}%!`);
+              } else {
+                onChallengeProgress(0, `Alignment verification failed! Overlap is only ${diffScore.toFixed(1)}%. Continue tweaking distance & wavelength.`);
+              }
+            }}
+            className="px-4 py-1 rounded-lg text-xs font-mono tracking-tight font-medium cursor-pointer transition-all bg-amber-950/85 text-amber-300 border border-amber-500/40 hover:bg-amber-900"
+          >
+            ☄️ EMIT WAVEFRONT
+          </button>
+        )}
         {systemType === 'spin' && activeChallengeId === 'entanglement-sync' && (
           <button
             id="spin-pulse-btn"
             onClick={() => {
               const alignedVal = Math.abs(Math.sin(accumTimeRef.current * 3.0));
               if (alignedVal < 0.15) {
-                onChallengeProgressRef.current(95, 'EPR Spin state synchronizing inside transverse magnetic window!');
+                onChallengeProgress(95, 'EPR Spin state synchronizing inside transverse magnetic window!');
               } else {
-                onChallengeProgressRef.current(0, 'Missed alignment window! Wait for the vectors to match exactly.');
+                onChallengeProgress(0, 'Missed alignment window! Wait for the vectors to match exactly.');
               }
             }}
             className="px-4 py-1 rounded-lg text-xs font-mono tracking-tight font-medium cursor-pointer transition-all bg-pink-950/80 text-pink-300 border border-pink-500/40 hover:bg-pink-900"

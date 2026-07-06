@@ -1,4 +1,4 @@
-export type QuantumSystemType = 'wavefunction' | 'superposition' | 'entanglement' | 'tunneling' | 'spin';
+export type QuantumSystemType = 'wavefunction' | 'superposition' | 'entanglement' | 'tunneling' | 'spin' | 'doubleslit';
 
 export interface QuantumEvent {
   id: string;
@@ -19,6 +19,12 @@ export interface QuantumSystemConfig {
   spinActive: boolean;
   tunnelingBarrierEnergy: number;
   tunnelingWavePacketWidth: number;
+  superpositionAmplitude: number;
+  superpositionFrequency: number;
+  superpositionPhase: number;
+  doubleSlitSlitWidth: number;
+  doubleSlitSlitDistance: number;
+  doubleSlitWaveWavelength: number;
 }
 
 export interface Challenge {
@@ -67,5 +73,14 @@ export const CHALLENGES: Challenge[] = [
     systemType: 'spin',
     instructions: 'Wait for the precession vectors of the entangled pair to sweep past each other, then trigger spin pulse at the perfect synchronization point!',
     successCondition: 'Simultaneous spin alignment match.'
+  },
+  {
+    id: 'doubleslit-diffraction',
+    title: 'Double-Slit Diffraction',
+    description: 'Adjust the de Broglie wavelength and slit distance to match the constructive interference zones of the detector screen. This creates a beautifully aligned fringes matrix!',
+    objective: 'Align interference fringes with the holographic target spots (Separation ≈ 2.2, Wavelength ≈ 1.2).',
+    systemType: 'doubleslit',
+    instructions: 'Observe how wavelength and slit distance modulate fringe spacing. Match the active fringes to the target hologram, then click EMIT WAVEFRONT to register the lock!',
+    successCondition: 'Diffraction alignment >= 90%'
   }
 ];

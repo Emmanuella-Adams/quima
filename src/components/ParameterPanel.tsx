@@ -112,21 +112,61 @@ export default function ParameterPanel({ systemType, config, setConfig }: Parame
           <div id="superposition-params" className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-medium text-slate-300">Interference Balance</span>
-                <span className="font-mono text-pink-400 font-bold">Resonance Mod</span>
+                <span className="font-medium text-slate-300">Wave Amplitude (A)</span>
+                <span className="font-mono text-pink-400 font-bold">{(config.superpositionAmplitude ?? 0.8).toFixed(1)} arb.</span>
               </div>
-              <p className="text-[10px] text-slate-400 font-sans leading-relaxed text-justify">
-                Superposition features multiple quantum orbitals simultaneously. Both States interact constructively (adding probability peaks) or destructively (canceling waves). Modulate system timelines to align overlapping energy fields.
+              <input
+                id="superposition-amplitude-slider"
+                type="range"
+                min="0.2"
+                max="2.0"
+                step="0.1"
+                value={config.superpositionAmplitude ?? 0.8}
+                onChange={(e) => setConfig((prev) => ({ ...prev, superpositionAmplitude: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Stretches or squashes the crests of your cyan wavefunction relative to the magenta target template envelope.
               </p>
             </div>
 
-            <div className="p-3.5 bg-slate-950/30 border border-slate-800 rounded-xl flex flex-col gap-2">
-              <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider font-semibold">Fourier Wave Formula</span>
-              <div className="text-[11px] font-mono text-slate-300 py-1 px-2.5 rounded-md bg-slate-950/60 border border-slate-900">
-                Ψ(x,t) = c₁ψ₁ + c₂ψ₂
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-slate-300">Harmonic Frequency (f)</span>
+                <span className="font-mono text-purple-400 font-bold">{(config.superpositionFrequency ?? 1.5).toFixed(1)} GHz</span>
               </div>
-              <p className="text-[10px] text-slate-500">
-                Where energy coefficients yield specific interference patterns and complex wavepacket movement.
+              <input
+                id="superposition-frequency-slider"
+                type="range"
+                min="0.5"
+                max="4.0"
+                step="0.1"
+                value={config.superpositionFrequency ?? 1.5}
+                onChange={(e) => setConfig((prev) => ({ ...prev, superpositionFrequency: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Adjusts the spatial frequency (wavelength density). Higher frequency packs the wave ripples closer together.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-slate-300">Hamiltonian Phase Shift (θ)</span>
+                <span className="font-mono text-cyan-400 font-bold">{Math.round(config.superpositionPhase ?? 120)}°</span>
+              </div>
+              <input
+                id="superposition-phase-slider"
+                type="range"
+                min="0"
+                max="360"
+                step="5"
+                value={config.superpositionPhase ?? 120}
+                onChange={(e) => setConfig((prev) => ({ ...prev, superpositionPhase: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Shifts the wavefunction horizontally along the physical axis to align peak crests directly over the target.
               </p>
             </div>
           </div>
@@ -229,6 +269,86 @@ export default function ParameterPanel({ systemType, config, setConfig }: Parame
               <p className="text-[10px] text-slate-400 leading-normal">
                 When immersed in a static magnetic field, a quantum particle's spin axis precesses gracefully, sweeping out a cone path.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Double slit parameters */}
+        {systemType === 'doubleslit' && (
+          <div id="doubleslit-params" className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-slate-300">Slit Separation (d)</span>
+                <span className="font-mono text-amber-400 font-bold">{(config.doubleSlitSlitDistance ?? 2.2).toFixed(2)} nm</span>
+              </div>
+              <input
+                id="doubleslit-distance-slider"
+                type="range"
+                min="1.0"
+                max="3.5"
+                step="0.1"
+                value={config.doubleSlitSlitDistance ?? 2.2}
+                onChange={(e) => setConfig((prev) => ({ ...prev, doubleSlitSlitDistance: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Controls the distance between the two slits. A larger separation crowds the interference stripes closer together on the screen.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-slate-300">De Broglie Wavelength (λ)</span>
+                <span className="font-mono text-cyan-400 font-bold">{(config.doubleSlitWaveWavelength ?? 1.2).toFixed(2)} Å</span>
+              </div>
+              <input
+                id="doubleslit-wavelength-slider"
+                type="range"
+                min="0.5"
+                max="2.2"
+                step="0.1"
+                value={config.doubleSlitWaveWavelength ?? 1.2}
+                onChange={(e) => setConfig((prev) => ({ ...prev, doubleSlitWaveWavelength: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Determines the wavelength of the particle wave. Longer wavelengths widen the spacing between adjacent fringes.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-medium text-slate-300">Individual Slit Width (w)</span>
+                <span className="font-mono text-purple-400 font-bold">{(config.doubleSlitSlitWidth ?? 0.4).toFixed(2)} nm</span>
+              </div>
+              <input
+                id="doubleslit-width-slider"
+                type="range"
+                min="0.15"
+                max="0.75"
+                step="0.05"
+                value={config.doubleSlitSlitWidth ?? 0.4}
+                onChange={(e) => setConfig((prev) => ({ ...prev, doubleSlitSlitWidth: parseFloat(e.target.value) }))}
+                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+              />
+              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                Determines individual slit width. Narrower slits diffuse the probability envelope wider across the phosphor screen.
+              </p>
+            </div>
+
+            <div className="border border-indigo-500/20 bg-indigo-950/20 p-3 rounded-xl text-[10px] leading-relaxed text-slate-300 flex flex-col gap-1">
+              <span className="font-bold flex items-center gap-1 font-mono uppercase text-indigo-400">
+                💡 EXPERIMENT HELP GUIDE
+              </span>
+              <p className="text-[10px] text-slate-300">
+                In this classic experiment, particles behave as <strong>probability waves</strong>. 
+                As they pass through both slits, their wave crests interfere with each other, forming a <strong>fringe pattern</strong> of bright stripes on the screen.
+              </p>
+              <ul className="list-disc pl-3.5 space-y-0.5 text-slate-400">
+                <li><strong className="text-amber-400">Slit Separation (d):</strong> Controls the distance between slits. Higher distance crowds stripes closer together.</li>
+                <li><strong className="text-cyan-400">Wavelength (λ):</strong> Higher De Broglie wavelength stretches the spacing between adjacent stripes wider.</li>
+                <li><strong>Quest Objective:</strong> Set <strong>Separation (d) to 2.20 nm</strong> and <strong>Wavelength (λ) to 1.20 Å</strong> to align active cyan stripes with the pink holographic guides!</li>
+              </ul>
             </div>
           </div>
         )}
